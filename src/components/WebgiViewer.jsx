@@ -18,24 +18,34 @@ import {
 } from "webgi";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { scrollAnimation } from "../lib/scrool-animation";
+
  gsap.registerPlugin(ScrollTrigger);
 function WebgiViewer() {
 
     const canvasref =  useRef(null);
+
+    const memoizedScrollAnimation = useCallback (
+        (position,target,onUpdate)=>{
+            if(position & target & onUpdate){
+                scrollAnimation(position,target,onUpdate);
+            }
+
+        },[]
+    )
+
     const setupViewer = useCallback (async () => {
 
         // Initialize the viewer
         const viewer = new ViewerApp({
             canvas: canvasref.current,
-        })
+        });
     
         // Add some plugins
         const manager = await viewer.addPlugin(AssetManagerPlugin)
         const camera = viewer.scene.activeCamera;
         const position = camera.position;
         const target = camera.target;
-        // Add a popup(in HTML) with download progress when any asset is downloading.
-        await viewer.addPlugin(AssetManagerBasicPopupPlugin)
     
         // Add plugins individually.
         await viewer.addPlugin(GBufferPlugin)
@@ -46,30 +56,36 @@ function WebgiViewer() {
         await viewer.addPlugin(SSAOPlugin)
         await viewer.addPlugin(BloomPlugin)
 
-        await addBasePlugins(viewer)
+       
         // This must be called once after all plugins are added.
         viewer.renderer.refreshPipeline()
-        await viewer.addPlugin(CanvasSnipperPlugin)
+       
     
         await manager.addFromPath("scene-black.glb");
         viewer.getPlugin(TonemapPlugin).config.clipBackground = true;
         viewer.scene.activeCamera.setCameraOptions({controlsEnabled:false});
-        window.screenTop(0,0);
+        window.scrollTo(0,0);
 
         let needUpdate = true;
+
+        const onUpdate = () =>{
+            needUpdate = true;
+            viewer.setDirty();
+        }
+
         viewer.addEventListener("preFrame",()=>{
             if(needUpdate){
             camera.positionTargetUpdated(true);
             needUpdate = false;
             }
-        })
+        });
  
    
-       
+        memoizedScrollAnimation(position,target,onUpdate);
     },[]);
 
     useEffect(()=>{
-        setupViewer()
+        setupViewer();
     },[]);
     
 
